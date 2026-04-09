@@ -177,27 +177,48 @@ app.get('/catalogo', async (req, res) => {
     const totalPaginas = Math.ceil(total / limit);
 
     const filasHtml = productos.map(p => {
-      const img = p.imagen || `${p.codigo}.webp`;
+      const img   = p.imagen || `${p.codigo}.webp`;
       const msgWa = encodeURIComponent(`Hola, consulto por ${p.nombre} (Código: ${p.codigo})`);
       return `
-      <article class="cat-row" itemscope itemtype="https://schema.org/Product">
-        <a href="/producto/${p.codigo}" class="cat-row-img-link" tabindex="-1" aria-hidden="true">
-          <img src="/img/${img}" alt="${p.nombre} – código ${p.codigo}" width="60" height="60"
-               loading="lazy" onerror="this.src='/img/default.webp'" itemprop="image">
+      <article class="prod-card-item" itemscope itemtype="https://schema.org/Product">
+        <a href="/producto/${p.codigo}" class="prod-card-img-link" tabindex="-1" aria-hidden="true">
+          <div class="prod-card-img-wrap">
+            <img
+              src="/img/${img}"
+              alt="${p.nombre} – Código ${p.codigo} | BGM Diesel"
+              width="260" height="200"
+              loading="lazy"
+              onerror="this.onerror=null;this.src='/img/default.webp'"
+              itemprop="image"
+            >
+          </div>
         </a>
-        <div class="cat-row-info">
-          <a href="/producto/${p.codigo}" class="cat-row-name" itemprop="name">${p.nombre}</a>
-          <span class="cat-row-code">Cód: ${p.codigo}</span>
-          ${p.marca ? `<span class="cat-row-marca">${p.marca}</span>` : ''}
+        <div class="prod-card-body">
+          ${p.marca ? `<span class="prod-card-marca" itemprop="brand">${p.marca}</span>` : '<span class="prod-card-marca-empty"></span>'}
+          <a href="/producto/${p.codigo}" class="prod-card-nombre" itemprop="name">${p.nombre}</a>
+          <span class="prod-card-codigo">Cód: <strong>${p.codigo}</strong></span>
         </div>
-        <div class="cat-row-actions">
-          <button class="btn-carrito-mini" data-codigo="${p.codigo}" data-nombre="${p.nombre}" title="Agregar al pedido">
-            🛒
-          </button>
-          <a href="https://wa.me/${WA_VENTAS}?text=${msgWa}" class="cat-card-wa" target="_blank" rel="noopener" aria-label="Consultar ${p.nombre} por WhatsApp">
-            Consultar
-          </a>
-          <a href="/producto/${p.codigo}" class="cat-ver-mas" aria-label="Ver detalle de ${p.nombre}">Ver más</a>
+        <div class="prod-card-footer">
+          <button
+            class="prod-card-btn-carrito btn-carrito-mini"
+            data-codigo="${p.codigo}"
+            data-nombre="${p.nombre}"
+            aria-label="Agregar ${p.nombre} al pedido"
+          >🛒 Agregar al pedido</button>
+          <div class="prod-card-btns-sec">
+            <a
+              href="https://wa.me/${WA_VENTAS}?text=${msgWa}"
+              class="prod-card-btn-wa"
+              target="_blank" rel="noopener"
+              aria-label="Consultar ${p.nombre} por WhatsApp"
+            >💬 WhatsApp</a>
+            <a
+              href="/producto/${p.codigo}"
+              class="prod-card-btn-ver"
+              aria-label="Ver detalle de ${p.nombre}"
+              itemprop="url"
+            >Ver más</a>
+          </div>
         </div>
       </article>`;
     }).join('');
@@ -248,13 +269,7 @@ ${navHtml('Catálogo')}
     <span class="catalogo-count">${total.toLocaleString('es-AR')} resultado${total !== 1 ? 's' : ''}</span>
   </form>
 
-  <div class="cat-list-header" aria-hidden="true">
-    <span style="width:68px"></span>
-    <span class="col-desc">Descripción</span>
-    <span class="col-wa">Acción</span>
-  </div>
-
-  <main id="cat-grid" class="cat-grid" aria-label="Listado de productos">
+  <main id="prod-cards-grid" class="prod-cards-grid" aria-label="Catálogo de productos">
     ${filasHtml || '<p class="catalogo-empty">No se encontraron productos para tu búsqueda.</p>'}
   </main>
 
@@ -338,10 +353,6 @@ app.get('/producto/:codigo', async (req, res) => {
 <script type="application/ld+json">${jsonLd}</script>
 ${navHtml()}
 
-<div class="breadcrumb">
-  <a href="/">Inicio</a> › <a href="/catalogo">Catálogo</a> › ${producto.nombre}
-</div>
-
 <main class="detalle-container" itemscope itemtype="https://schema.org/Product">
 
   <div class="detalle-grid">
@@ -361,11 +372,18 @@ ${navHtml()}
       ${producto.marca ? `<p class="detalle-marca" itemprop="brand">${producto.marca}</p>` : ''}
       <h1 itemprop="name">${producto.nombre}</h1>
 
-      <dl class="detalle-meta">
-        <dt>Código BGM</dt>
-        <dd itemprop="sku">${producto.codigo}</dd>
+      <span class="detalle-badge">✓ Consultá disponibilidad y precio</span>
 
-        ${producto.categoria ? `<dt>Categoría</dt><dd>${producto.categoria}</dd>` : ''}
+      <dl class="detalle-meta">
+        <div class="detalle-meta-row">
+          <dt>Código</dt>
+          <dd itemprop="sku">${producto.codigo}</dd>
+        </div>
+        ${producto.categoria ? `
+        <div class="detalle-meta-row">
+          <dt>Categoría</dt>
+          <dd>${producto.categoria}</dd>
+        </div>` : ''}
       </dl>
 
       ${producto.descripcion ? `<p class="detalle-descripcion" itemprop="description">${producto.descripcion}</p>` : ''}
