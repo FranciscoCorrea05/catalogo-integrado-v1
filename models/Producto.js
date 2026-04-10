@@ -7,12 +7,19 @@ const productoSchema = new mongoose.Schema({
   marca:            { type: String, trim: true, default: '' },
   categoria:        { type: String, trim: true, default: '' },
   descripcion:      { type: String, trim: true, default: '' },
-  imagen:           { type: String, default: '' }, // nombre de archivo en /public/img/
+  imagen:           { type: String, default: '' },
 }, {
   timestamps: true
 });
 
-// índice de búsqueda de texto
-productoSchema.index({ codigo: 'text', nombre: 'text', marca: 'text' });
+// Índice de texto completo con pesos — nombre tiene más relevancia que código
+productoSchema.index(
+  { nombre: 'text', codigo: 'text', codigo_proveedor: 'text' },
+  { weights: { nombre: 10, codigo: 5, codigo_proveedor: 1 }, name: 'idx_busqueda' }
+);
+
+// Índice simple en marca para filtros rápidos
+productoSchema.index({ marca: 1 });
+
 
 module.exports = mongoose.model('Producto', productoSchema);

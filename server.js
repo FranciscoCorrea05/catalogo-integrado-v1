@@ -147,6 +147,40 @@ function headHtml({ title, desc, canonical = '' }) {
 // Express ya lo sirve via static, pero si queremos control total:
 // app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public/index.html')));
 
+// ─── Helper: construir filtro de búsqueda optimizado ─────────────────────────
+function buildFiltro(q, marca) {
+  const filtro = {};
+
+  if (q) {
+    // Escapar caracteres especiales de regex para evitar inyección y errores
+    const qEscaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // Si el query parece un código (contiene números o /) usar búsqueda exacta por prefijo
+    // que es mucho más rápida con el índice que un regex global
+    const esCodigo = /^[\d\/\-\.A-Za-z]{1,6}$/.test(q) && /\d/.test(q);
+
+    if (esCodigo) {
+      // Regex anclado al inicio → usa índice, no hace full-scan
+      filtro.$or = [
+        { codigo:           { $regex: '^' + qEscaped, $options: 'i' } },
+        { codigo_proveedor: { $regex: '^' + qEscaped, $options: 'i' } },
+        { nombre:           { $regex: qEscaped, $options: 'i' } },
+      ];
+    } else {
+      // Búsqueda de texto libre: usar $text con el índice de texto
+      // Es órdenes de magnitud más rápido que $regex en colecciones grandes
+      filtro.$text = { $search: q };
+    }
+  }
+
+  if (marca) {
+    // Marca exacta (viene del distinct, no necesita regex)
+    filtro.marca = marca;
+  }
+
+  return filtro;
+}
+
 // GET /catalogo  → Listado SSR con paginación y búsqueda
 app.get('/catalogo', async (req, res) => {
   try {
@@ -155,23 +189,25 @@ app.get('/catalogo', async (req, res) => {
     const q     = (req.query.q || '').trim();
     const marca = (req.query.marca || '').trim();
 
-    const filtro = {};
-    if (q) {
-      filtro.$or = [
-        { codigo:  { $regex: q, $options: 'i' } },
-        { nombre:  { $regex: q, $options: 'i' } },
-        { codigo_proveedor: { $regex: q, $options: 'i' } },
-      ];
-    }
-    if (marca) filtro.marca = { $regex: marca, $options: 'i' };
+    const filtro = buildFiltro(q, marca);
 
-    const [total, productos, marcas] = await Promise.all([
+    // Proyección: solo los campos que necesitamos
+    const proyeccion = 'codigo codigo_proveedor nombre marca imagen';
+
+    // Si hay búsqueda de texto, ordenar por score de relevancia
+    const sortOpt = filtro.$text ? { score: { $meta: 'textScore' } } : {};
+    const proyConScore = filtro.$text
+      ? proyeccion + ' score'
+      : proyeccion;
+
+    const [total, productos] = await Promise.all([
       Producto.countDocuments(filtro),
-      Producto.find(filtro, 'codigo codigo_proveedor nombre marca imagen')
+      Producto.find(filtro, proyConScore)
+        .sort(filtro.$text ? { score: { $meta: 'textScore' } } : {})
         .skip((page - 1) * limit)
         .limit(limit)
         .lean(),
-      Producto.distinct('marca'),
+      // Eliminamos Producto.distinct('marca') — ya no se usa el select
     ]);
 
     const totalPaginas = Math.ceil(total / limit);
@@ -235,10 +271,6 @@ app.get('/catalogo', async (req, res) => {
       ${page < totalPaginas ? `<a href="/catalogo?q=${encodeURIComponent(q)}&marca=${encodeURIComponent(marca)}&page=${page+1}" class="pag-btn" aria-label="Página siguiente">→</a>` : ''}
     </div>` : '';
 
-    const marcaOptions = marcas.filter(Boolean).sort().map(m =>
-      `<option value="${m}"${marca === m ? ' selected' : ''}>${m}</option>`
-    ).join('');
-
     res.send(`${headHtml({
       title: `Catálogo de Repuestos Diesel | BGM Diesel Rosario – Página ${page}`,
       desc: 'Catálogo completo de repuestos para camiones en Rosario. Mercedes Benz, Scania, Volvo, Cummins, Ford Cargo. Consultá stock por WhatsApp.',
@@ -255,17 +287,17 @@ ${navHtml('Catálogo')}
 </section>
 
 <div class="cat-body">
-  <form class="catalogo-toolbar" method="GET" action="/catalogo" role="search">
+  <form class="catalogo-toolbar" method="GET" action="/catalogo" role="search" autocomplete="off">
     <label for="buscador" class="sr-only">Buscar repuestos</label>
-    <input type="search" id="buscador" name="q" class="catalogo-search"
-           placeholder="Buscar por código o nombre…" value="${q}"
-           autocomplete="off" aria-label="Buscar repuestos por código o nombre">
-    <select name="marca" class="catalogo-select" aria-label="Filtrar por marca">
-      <option value="">Todas las marcas</option>
-      ${marcaOptions}
-    </select>
+    <div class="buscador-wrap">
+      <input type="search" id="buscador" name="q" class="catalogo-search"
+             placeholder="Buscar por código o nombre…" value="${q}"
+             autocomplete="off" aria-label="Buscar repuestos por código o nombre"
+             spellcheck="false">
+      <div id="sugerencias" class="sugerencias-list" role="listbox" aria-label="Sugerencias" hidden></div>
+    </div>
     <button type="submit" class="btn-buscar" aria-label="Buscar">Buscar</button>
-    ${(q || marca) ? `<a href="/catalogo" class="btn-limpiar" aria-label="Limpiar filtros">✕ Limpiar</a>` : ''}
+    ${q ? `<a href="/catalogo" class="btn-limpiar" aria-label="Limpiar búsqueda">✕ Limpiar</a>` : ''}
     <span class="catalogo-count">${total.toLocaleString('es-AR')} resultado${total !== 1 ? 's' : ''}</span>
   </form>
 
@@ -284,19 +316,86 @@ ${navHtml('Catálogo')}
 ${footerHtml()}
 <script src="/carrito.js" defer></script>
 <script>
-  // Búsqueda live (debounce)
-  (function(){
-    var input = document.getElementById('buscador');
-    var form  = input.closest('form');
-    var t;
-    input.addEventListener('input', function(){
-      clearTimeout(t);
-      t = setTimeout(function(){ form.submit(); }, 500);
-    });
-    document.querySelector('.catalogo-select')?.addEventListener('change', function(){
-      form.submit();
-    });
-  })();
+(function () {
+  var input      = document.getElementById('buscador');
+  var form       = input.closest('form');
+  var sugs       = document.getElementById('sugerencias');
+  var debTimer, fetchTimer, lastQ = '';
+
+  // ── Debounce submit SSR (600ms) ─────────────────────────────────────────────
+  // Solo dispara si el valor realmente cambió (evita submit vacío al limpiar)
+  input.addEventListener('input', function () {
+    var val = input.value.trim();
+    clearTimeout(debTimer);
+    // Limpiar sugerencias si el campo está vacío
+    if (!val) { hideSugs(); return; }
+    // Debounce submit — 600ms da tiempo a escribir sin recargar en cada tecla
+    debTimer = setTimeout(function () {
+      if (val !== lastQ) { lastQ = val; form.submit(); }
+    }, 600);
+    // Sugerencias más rápidas — 300ms, solo fetch liviano
+    clearTimeout(fetchTimer);
+    fetchTimer = setTimeout(function () { fetchSugs(val); }, 300);
+  });
+
+  // Submit inmediato al presionar Enter (no esperar debounce)
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { clearTimeout(debTimer); clearTimeout(fetchTimer); hideSugs(); }
+    // Navegar sugerencias con flechas
+    if (e.key === 'ArrowDown') { e.preventDefault(); focusSug(0); }
+  });
+
+  // Cerrar sugerencias al hacer click afuera
+  document.addEventListener('click', function (e) {
+    if (!form.contains(e.target)) hideSugs();
+  });
+
+  // ── Sugerencias en vivo ──────────────────────────────────────────────────────
+  var controller = null;
+
+  function fetchSugs(q) {
+    if (q.length < 2) { hideSugs(); return; }
+    // Cancelar request anterior si sigue en vuelo
+    if (controller) controller.abort();
+    controller = new AbortController();
+
+    fetch('/api/sugerencias?q=' + encodeURIComponent(q), { signal: controller.signal })
+      .then(function (r) { return r.json(); })
+      .then(function (data) { renderSugs(data, q); })
+      .catch(function () {}); // abort silencioso
+  }
+
+  function renderSugs(items, q) {
+    if (!items.length) { hideSugs(); return; }
+    sugs.innerHTML = items.map(function (item) {
+      // Resaltar el texto que coincide
+      var esc  = q.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+      var re   = new RegExp('(' + esc + ')', 'gi');
+      var nom  = item.nombre.replace(re, '<mark>$1</mark>');
+      return '<a class="sug-item" href="/producto/' + item.codigo + '" role="option">' +
+               '<span class="sug-nombre">' + nom + '</span>' +
+               '<span class="sug-codigo">' + item.codigo + '</span>' +
+             '</a>';
+    }).join('');
+    sugs.hidden = false;
+  }
+
+  function hideSugs() { sugs.hidden = true; sugs.innerHTML = ''; }
+
+  function focusSug(idx) {
+    var items = sugs.querySelectorAll('.sug-item');
+    if (items[idx]) { items[idx].focus(); }
+  }
+
+  // Navegar sugerencias con teclado
+  sugs.addEventListener('keydown', function (e) {
+    var items = sugs.querySelectorAll('.sug-item');
+    var cur   = Array.from(items).indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); focusSug(Math.min(cur + 1, items.length - 1)); }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); cur > 0 ? focusSug(cur - 1) : input.focus(); }
+    if (e.key === 'Escape')    { hideSugs(); input.focus(); }
+  });
+})();
 </script>
 </body></html>`);
 
@@ -449,6 +548,39 @@ ${footerHtml()}
 <script src="/carrito.js" defer></script>
 <script src="/carrito-page.js" defer></script>
 </body></html>`);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// API SUGERENCIAS — liviano, solo devuelve nombre + codigo (máx 8 resultados)
+// ═══════════════════════════════════════════════════════════════════════════════
+app.get('/api/sugerencias', async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (q.length < 2) return res.json([]);
+
+    const qEscaped = q.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\$&');
+    const esCodigo = /^[\d\/\-\.A-Za-z]{1,6}$/.test(q) && /\d/.test(q);
+
+    let filtro;
+    if (esCodigo) {
+      filtro = { $or: [
+        { codigo: { $regex: '^' + qEscaped, $options: 'i' } },
+        { nombre: { $regex: qEscaped, $options: 'i' } },
+      ]};
+    } else {
+      filtro = { $text: { $search: q } };
+    }
+
+    const resultados = await Producto.find(filtro, 'codigo nombre')
+      .limit(8)
+      .lean();
+
+    // Cache de sugerencias — 60 segundos
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json(resultados);
+  } catch (err) {
+    res.json([]);
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
