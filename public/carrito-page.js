@@ -78,6 +78,39 @@ function renderCarrito() {
   });
 }
 
+// Modal custom para vaciar carrito
+function showConfirmModal(onConfirm) {
+  var overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+  overlay.innerHTML =
+    '<div class="confirm-modal">' +
+      '<div class="confirm-icon">🗑</div>' +
+      '<h3 class="confirm-title">¿Vaciar el pedido?</h3>' +
+      '<p class="confirm-msg">Se eliminarán todos los productos del pedido. Esta acción no se puede deshacer.</p>' +
+      '<div class="confirm-btns">' +
+        '<button class="confirm-btn-cancel">Cancelar</button>' +
+        '<button class="confirm-btn-ok">Sí, vaciar</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+
+  // Animación entrada
+  requestAnimationFrame(function() { overlay.classList.add('confirm-visible'); });
+
+  function cerrar() {
+    overlay.classList.remove('confirm-visible');
+    setTimeout(function() { overlay.remove(); }, 250);
+  }
+
+  overlay.querySelector('.confirm-btn-cancel').addEventListener('click', cerrar);
+  overlay.querySelector('.confirm-btn-ok').addEventListener('click', function() {
+    cerrar();
+    setTimeout(onConfirm, 50);
+  });
+  // Click fuera cierra
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) cerrar(); });
+}
+
 // Vaciar
 var clearBtn = document.getElementById('clearCart');
 if (clearBtn) {
@@ -86,11 +119,11 @@ if (clearBtn) {
       showNotif('El pedido ya está vacío', 'warning');
       return;
     }
-    if (confirm('¿Vaciar el pedido?')) {
+    showConfirmModal(function() {
       saveCart({});
       renderCarrito();
       showNotif('Pedido vaciado', 'success');
-    }
+    });
   });
 }
 

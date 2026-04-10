@@ -901,6 +901,87 @@ footer { background: var(--navy); border-top: 3px solid var(--rojo); padding: 3r
 }
 .btn-added { animation: btn-added-anim 0.5s ease; }
 
+/* ══════════════════════════════════════
+   MODAL DE CONFIRMACIÓN
+   ══════════════════════════════════════ */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 18, 40, 0.65);
+  backdrop-filter: blur(3px);
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.confirm-overlay.confirm-visible { opacity: 1; }
+.confirm-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 2rem 2rem 1.6rem;
+  max-width: 360px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+  transform: translateY(20px) scale(0.97);
+  transition: transform 0.25s cubic-bezier(.21,1.02,.73,1);
+}
+.confirm-overlay.confirm-visible .confirm-modal {
+  transform: translateY(0) scale(1);
+}
+.confirm-icon {
+  font-size: 2.4rem;
+  margin-bottom: 0.8rem;
+  line-height: 1;
+}
+.confirm-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--navy);
+  margin-bottom: 0.5rem;
+}
+.confirm-msg {
+  font-size: 0.88rem;
+  color: var(--gris);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+.confirm-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.confirm-btn-cancel {
+  padding: 0.75rem;
+  border: 1.5px solid #dde2ea;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gris);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.confirm-btn-cancel:hover { border-color: var(--navy); color: var(--navy); }
+.confirm-btn-ok {
+  padding: 0.75rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--rojo);
+  color: #fff;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.confirm-btn-ok:hover { background: var(--rojo-vivo); }
+
 /* ── ANIMACIONES ───────────────────────────────── */
 @keyframes fadeUp { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
