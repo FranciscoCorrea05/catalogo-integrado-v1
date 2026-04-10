@@ -9,6 +9,49 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/catalogo';
 const WA_VENTAS = process.env.WA_VENTAS || '5493415317707';
+const SITE      = process.env.SITE_URL || 'https://www.bgmdiesel.com.ar';
+
+// ─── Schema.org global — LocalBusiness + Organization ────────────────────────
+const SCHEMA_ORG = JSON.stringify({
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": ["LocalBusiness", "AutoPartsStore"],
+      "@id": `${SITE}/#negocio`,
+      "name": "BGM Diesel",
+      "alternateName": "BGM Diesel Repuestos",
+      "description": "Más de 30 años vendiendo repuestos para camiones en Rosario, Santa Fe. Especializados en Scania, Mercedes Benz, Volvo, Cummins y Ford Cargo.",
+      "url": SITE,
+      "logo": `${SITE}/img/logo.jpg`,
+      "image": `${SITE}/img/logo.jpg`,
+      "telephone": ["+543417926696", "+543414312003"],
+      "email": "ventas@bgmdiesel.com.ar",
+      "priceRange": "$$",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Bv. 27 de Febrero 3447",
+        "addressLocality": "Rosario",
+        "addressRegion": "Santa Fe",
+        "postalCode": "2000",
+        "addressCountry": "AR"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": -32.9620372,
+        "longitude": -60.6756382
+      },
+      "openingHoursSpecification": [
+        { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"], "opens": "08:00", "closes": "17:00" },
+        { "@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "08:00", "closes": "12:00" }
+      ],
+      "areaServed": { "@type": "Country", "name": "Argentina" },
+      "sameAs": [
+        "https://www.instagram.com/bgmdiesel/",
+        "https://www.google.com/maps/place/B.G.M.+DIESEL/@-32.9620372,-60.6756382,15z"
+      ]
+    }
+  ]
+});
 
 // ─── Middlewares ─────────────────────────────────────────────────────────────
 app.use(cors());
@@ -136,27 +179,141 @@ function footerHtml() {
 }
 
 // ─── HEAD parcial ─────────────────────────────────────────────────────────────
-function headHtml({ title, desc, canonical = '' }) {
+function headHtml({ title, desc, canonical = '', ogType = 'website', ogImage = '', schema = '' }) {
+  const canon  = canonical || SITE;
+  const image  = ogImage || `${SITE}/img/logo.jpg`;
+  const titleC = title.length > 60 ? title.slice(0, 57) + '...' : title;
+  const descC  = desc.length  > 160 ? desc.slice(0, 157) + '...' : desc;
+
   return `<!DOCTYPE html>
-<html lang="es-AR">
+<html lang="es-AR" prefix="og: https://ogp.me/ns#">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
-  <meta name="description" content="${desc}">
-  ${canonical ? `<link rel="canonical" href="${canonical}">` : ''}
-  <meta property="og:title" content="${title}">
-  <meta property="og:description" content="${desc}">
-  <meta property="og:type" content="website">
+
+  <!-- SEO básico -->
+  <title>${titleC}</title>
+  <meta name="description" content="${descC}">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="${canon}">
+
+  <!-- Open Graph -->
+  <meta property="og:type"        content="${ogType}">
+  <meta property="og:title"       content="${titleC}">
+  <meta property="og:description" content="${descC}">
+  <meta property="og:url"         content="${canon}">
+  <meta property="og:image"       content="${image}">
+  <meta property="og:image:width"  content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt"   content="${titleC}">
+  <meta property="og:site_name"   content="BGM Diesel">
+  <meta property="og:locale"      content="es_AR">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card"        content="summary_large_image">
+  <meta name="twitter:title"       content="${titleC}">
+  <meta name="twitter:description" content="${descC}">
+  <meta name="twitter:image"       content="${image}">
+
+  <!-- Geo / Local SEO -->
+  <meta name="geo.region"      content="AR-S">
+  <meta name="geo.placename"   content="Rosario, Santa Fe, Argentina">
+  <meta name="geo.position"    content="-32.9620372;-60.6756382">
+  <meta name="ICBM"            content="-32.9620372, -60.6756382">
+
+  <!-- Schema.org global -->
+  <script type="application/ld+json">${SCHEMA_ORG}</script>
+  ${schema ? `<script type="application/ld+json">${schema}</script>` : ''}
+
+  <!-- Favicon -->
   <link rel="icon" type="image/jpeg" href="/img/logo.jpg">
+
+  <!-- Performance: preconnect + font carga no bloqueante -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="/styles.css">
+
+  <!-- CSS crítico inline primero, luego el resto -->
+  <link rel="preload" as="style" href="/styles.css" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="/styles.css"></noscript>
 </head>
 <body>`;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SEO — robots.txt + sitemap.xml
+// ═══════════════════════════════════════════════════════════════════════════════
+
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain');
+  res.send([
+    'User-agent: *',
+    'Allow: /',
+    'Disallow: /carrito',
+    'Disallow: /api/',
+    '',
+    `Sitemap: ${SITE}/sitemap.xml`,
+    '',
+    '# Crawl-delay recomendado para bots secundarios',
+    'User-agent: AhrefsBot',
+    'Crawl-delay: 10',
+    'User-agent: SemrushBot',
+    'Crawl-delay: 10',
+  ].join('\n'));
+});
+
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    // Páginas estáticas
+    const staticPages = [
+      { url: SITE + '/',         priority: '1.0', changefreq: 'weekly'  },
+      { url: SITE + '/catalogo', priority: '0.9', changefreq: 'daily'   },
+    ];
+
+    // Productos — solo codigo necesitamos
+    const productos = await Producto.find({}, 'codigo updatedAt').lean();
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const urlsStatic = staticPages.map(p => `
+  <url>
+    <loc>${p.url}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>${p.changefreq}</changefreq>
+    <priority>${p.priority}</priority>
+  </url>`).join('');
+
+    const urlsProductos = productos.map(p => {
+      const lastmod = p.updatedAt
+        ? new Date(p.updatedAt).toISOString().split('T')[0]
+        : today;
+      return `
+  <url>
+    <loc>${SITE}/producto/${encodeURIComponent(p.codigo)}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>`;
+    }).join('');
+
+    res.header('Content-Type', 'application/xml');
+    // Cache 1 hora en CDN/proxy
+    res.header('Cache-Control', 'public, max-age=3600');
+    res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+${urlsStatic}
+${urlsProductos}
+</urlset>`);
+
+  } catch (err) {
+    console.error('Sitemap error:', err);
+    res.status(500).send('Error generando sitemap');
+  }
+});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RUTAS DE PÁGINAS (SSR)
@@ -290,10 +447,30 @@ app.get('/catalogo', async (req, res) => {
       ${page < totalPaginas ? `<a href="/catalogo?q=${encodeURIComponent(q)}&marca=${encodeURIComponent(marca)}&page=${page+1}" class="pag-btn" aria-label="Página siguiente">→</a>` : ''}
     </div>` : '';
 
+    const catSchema = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "@id": `${SITE}/catalogo`,
+      "name": "Catálogo de Repuestos para Camiones | BGM Diesel",
+      "description": "Catálogo completo de repuestos para camiones en Rosario.",
+      "url": `${SITE}/catalogo`,
+      "isPartOf": { "@id": `${SITE}/#negocio` },
+      "breadcrumb": {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Inicio",   "item": SITE },
+          { "@type": "ListItem", "position": 2, "name": "Catálogo", "item": `${SITE}/catalogo` }
+        ]
+      }
+    });
+
     res.send(`${headHtml({
-      title: `Catálogo de Repuestos Diesel | BGM Diesel Rosario – Página ${page}`,
-      desc: 'Catálogo completo de repuestos para camiones en Rosario. Mercedes Benz, Scania, Volvo, Cummins, Ford Cargo. Consultá stock por WhatsApp.',
-      canonical: `https://www.bgmdiesel.com.ar/catalogo${page > 1 ? `?page=${page}` : ''}`,
+      title: page > 1
+        ? `Catálogo de Repuestos – Página ${page} | BGM Diesel Rosario`
+        : 'Catálogo de Repuestos para Camiones | BGM Diesel Rosario',
+      desc: 'Catálogo completo de repuestos para camiones en Rosario. Scania, Mercedes Benz, Volvo, Cummins, Ford Cargo. ' + total.toLocaleString('es-AR') + ' productos disponibles.',
+      canonical: page > 1 ? `${SITE}/catalogo?page=${page}` : `${SITE}/catalogo`,
+      schema: catSchema,
     })}
 ${navHtml('Catálogo')}
 
@@ -449,24 +626,52 @@ app.get('/producto/:codigo', async (req, res) => {
       `Hola, quisiera consultar por ${producto.nombre} (Código: ${producto.codigo})`
     );
 
+    const imgUrl = `${SITE}/img/${img}`;
     const jsonLd = JSON.stringify({
       "@context": "https://schema.org",
       "@type": "Product",
+      "@id": `${SITE}/producto/${producto.codigo}`,
       "name": producto.nombre,
       "description": desc,
       "sku": producto.codigo,
-      "brand": producto.marca ? { "@type": "Brand", "name": producto.marca } : undefined,
+      "mpn": producto.codigo_proveedor || producto.codigo,
+      "image": [imgUrl],
+      "url": `${SITE}/producto/${producto.codigo}`,
+      ...(producto.marca      ? { "brand":    { "@type": "Brand",    "name": producto.marca    } } : {}),
+      ...(producto.categoria  ? { "category": producto.categoria } : {}),
       "offers": {
         "@type": "Offer",
+        "@id": `${SITE}/producto/${producto.codigo}#oferta`,
+        "url": `${SITE}/producto/${producto.codigo}`,
         "availability": "https://schema.org/InStock",
-        "seller": { "@type": "Organization", "name": "BGM Diesel" }
+        "itemCondition": "https://schema.org/NewCondition",
+        "priceCurrency": "ARS",
+        "priceSpecification": {
+          "@type": "PriceSpecification",
+          "priceCurrency": "ARS",
+          "description": "Consultá precio por WhatsApp"
+        },
+        "seller": { "@type": "LocalBusiness", "@id": `${SITE}/#negocio`, "name": "BGM Diesel" }
       }
+    });
+
+    const breadcrumbLd = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Inicio",   "item": SITE },
+        { "@type": "ListItem", "position": 2, "name": "Catálogo", "item": `${SITE}/catalogo` },
+        { "@type": "ListItem", "position": 3, "name": producto.nombre, "item": `${SITE}/producto/${producto.codigo}` }
+      ]
     });
 
     res.send(`${headHtml({
       title: `${producto.nombre} | BGM Diesel Rosario`,
       desc: desc.slice(0, 160),
-      canonical: `https://www.bgmdiesel.com.ar/producto/${producto.codigo}`,
+      canonical: `${SITE}/producto/${producto.codigo}`,
+      ogType: 'product',
+      ogImage: imgUrl,
+      schema: breadcrumbLd,
     })}
 <script type="application/ld+json">${jsonLd}</script>
 ${navHtml()}
