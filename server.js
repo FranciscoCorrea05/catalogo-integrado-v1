@@ -39,8 +39,15 @@ function navHtml(paginaActual = '') {
       <li><a href="${href}"${paginaActual === label ? ' aria-current="page"' : ''}>${label}</a></li>
     `).join('')}
     <li>
-      <a href="/carrito" class="nav-carrito-link">
-        🛒 <span id="nav-carrito-count">0</span>
+      <a href="/carrito" class="nav-carrito-link" aria-label="Ver pedido">
+        <span class="nav-carrito-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <path d="M16 10a4 4 0 01-8 0"/>
+          </svg>
+          <span class="nav-carrito-badge" id="nav-carrito-count" aria-live="polite"></span>
+        </span>
       </a>
     </li>
   </ul>
@@ -82,18 +89,30 @@ function footerHtml() {
     <span>Repuestos para camiones · Rosario · Santa Fe · Argentina</span>
   </div>
 </footer>
+<a href="/carrito" class="cart-float" aria-label="Ver pedido" id="cartFloat">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+    <line x1="3" y1="6" x2="21" y2="6"/>
+    <path d="M16 10a4 4 0 01-8 0"/>
+  </svg>
+  <span class="cart-float-badge" id="cart-float-count"></span>
+</a>
 <a href="https://wa.me/${WA_VENTAS}" class="wa-float" target="_blank" rel="noopener" aria-label="Contactar por WhatsApp">
   <svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="true">
     <path fill="white" d="M16 .4C7.4.4.4 7.4.4 16c0 2.8.7 5.5 2.1 7.9L.2 31.8l8.1-2.2c2.3 1.3 4.9 2 7.7 2 8.6 0 15.6-7 15.6-15.6S24.6.4 16 .4zm0 28.6c-2.5 0-4.9-.7-7-2l-.5-.3-4.8 1.3 1.3-4.7-.3-.5c-1.3-2.1-2-4.5-2-7 0-7.2 5.9-13 13-13s13 5.9 13 13-5.8 13-13 13zm7.2-9.7c-.4-.2-2.3-1.1-2.6-1.2-.4-.1-.6-.2-.9.2s-1 1.2-1.2 1.4c-.2.2-.4.3-.8.1-.4-.2-1.6-.6-3-2-1.1-1-1.8-2.3-2-2.7-.2-.4 0-.6.1-.8l.6-.6c.2-.2.2-.4.3-.6.1-.2 0-.5-.1-.7-.1-.2-.9-2.1-1.2-2.9-.3-.8-.6-.7-.9-.7h-.8c-.3 0-.7.1-1 .5-.4.4-1.3 1.3-1.3 3.2s1.3 3.7 1.5 3.9c.2.2 2.6 4 6.3 5.6.9.4 1.6.6 2.2.8.9.3 1.7.3 2.3.2.7-.1 2.3-.9 2.6-1.8.3-.9.3-1.6.2-1.8-.1-.2-.3-.3-.7-.5z"/>
   </svg>
 </a>
 <script>
-  // Nav carrito badge
+  // Nav + float carrito badge
   (function(){
-    var cart = JSON.parse(localStorage.getItem('bgm_cart') || '{}');
+    var cart  = JSON.parse(localStorage.getItem('bgm_cart') || '{}');
     var count = Object.values(cart).reduce(function(s,i){return s+i.cantidad;},0);
-    var el = document.getElementById('nav-carrito-count');
-    if(el){ el.textContent = count > 0 ? count : ''; }
+    var nav   = document.getElementById('nav-carrito-count');
+    var flt   = document.getElementById('cart-float-count');
+    var cf    = document.getElementById('cartFloat');
+    if(nav){ nav.textContent = count > 0 ? count : ''; nav.classList.toggle('visible', count > 0); }
+    if(flt){ flt.textContent = count > 0 ? count : ''; }
+    if(cf) { cf.classList.toggle('cart-float--activo', count > 0); }
   })();
   // Hamburger
   (function(){
