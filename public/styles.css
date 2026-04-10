@@ -997,7 +997,6 @@ footer { background: var(--navy); border-top: 3px solid var(--rojo); padding: 3r
 
   /* Nav */
   nav { padding: 0 4vw; height: 60px; }
-  --nav-main: 60px;
   body { padding-top: 60px; }
   .nav-logo-img { height: 40px; }
   .nav-cta { padding: 0.55rem 0.9rem; font-size: 0.75rem; }
